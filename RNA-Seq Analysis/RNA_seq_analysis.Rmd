@@ -1,0 +1,197 @@
+---
+title: "RNA-seq analysis"
+author: "Leticia Rodríguez Montes"
+date: "28/06/2022"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    code_folding: hide
+    toc_depth: 3
+---
+## 1. Libraries and dataset  
+
+I chose the following dataset:
+
+- SRA: SRP039909
+
+- BioProject: PRJNA240965
+
+- GEO: GSE55769
+
+
+```{r}
+# Libraries
+library(recount)
+library(DESeq2)
+library(DT)
+library(ggplot2)
+library(gplots)
+library(RColorBrewer)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+require(DOSE)
+
+# Downloading data
+url <- download_study('SRP039909')
+
+# Loading the data
+load(file.path('SRP039909', 'rse_gene.Rdata'))
+
+
+# Scaling counts
+rse <- scale_counts(rse_gene)
+
+# Splitting metadata
+rse$receptor <- sapply(strsplit(as.character(rse$title), ","), `[`, 1)
+rse$treatment <- sapply(strsplit(as.character(rse$title), ","), `[`, 2)
+rse$replicate <- sapply(strsplit(as.character(rse$title), ","), `[`, 3)
+```
+
+The design of the experiment is the following according to the authors:
+
+The goal is to identify estrogen-dependent gene expression patterns using RNAseq for 3 different ERa forms in human osteoblasts. Overall design: We analyzed 3 different forms of estrogen receptor alpha (ERa), 1) Wild-type, 2) NERKI (DNA-binding mutant) and 3) NOER (Nuclear Only ERa, not membrane). Each was infected into hFOB (human osteoblast) cells and treated with either vehicle or E2 (10nM) (n=3 for each group/treatment). RNAseq was then performed.
+
+For our analysis, I will keep only the data regarding the wildtype ERa and will do differential expression analysis comparing cells treated with vehicle vs treated with estrogen.
+
+## 2. Differential expression analysis
+
+```{r}
+rse_era <- subset(rse, select = colData(rse)$receptor == "Ad-Era")
+
+# Specifying design 
+dds <- DESeqDataSet(rse_era, ~ treatment)
+
+# Removing lowly expressed genes
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+# Performing differential expression analysis
+dds$treatment <- relevel(dds$treatment, ref = " Vehicle")
+dds <- DESeq(dds)
+res <- results(dds)
+```
+
+### 2.1. Differentially expressed genes
+
+The differentially expressed genes between "vehicle" and "estrogen" treatment are:
+
+```{r}
+res_table <- as.data.frame(res)
+
+# Getting significant genes
+degs <- subset(res_table, padj<0.05)
+
+# Making table
+DT::datatable(degs, extensions = 'FixedColumns',
+  options = list(
+  dom = 't',
+  scrollX = TRUE,
+  scrollCollapse = TRUE
+))
+```
+
+### 2.2. Principal component analysis
+
+```{r}
+# VST transformation
+vsd <- vst(dds, blind=FALSE)
+
+# Plotting PCA
+plotPCA(vsd, intgroup="treatment") + ggtitle("PCA")
+```
+
+Principal component 1 clearly separates the samples according to the treatment.
+
+### 2.3. Volcano plot
+
+```{r}
+# Adding a column with classification
+res_table$diffexpressed <- "NO"
+# If log2Foldchange > 1 and pval < 0.05, setting as "UP-regulated" 
+res_table$diffexpressed[res_table$log2FoldChange > 1 & res_table$pval < 0.05] <- "UP"
+# If log2Foldchange < -1 and pval < 0.05, setting as "DOWN-regulated"
+res_table$diffexpressed[res_table$log2FoldChange < -1 & res_table$pval < 0.05] <- "DOWN"
+
+# Plotting volcano plot 
+ggplot(data=res_table, aes(x=log2FoldChange, y=-log10(pvalue), col=diffexpressed)) +
+        geom_point() + 
+        theme_minimal() +
+        scale_color_manual(values=c("blue", "black", "red")) +
+        geom_vline(xintercept=c(-1, 1), col="red") +
+        geom_hline(yintercept=-log10(0.05), col="red")+ ggtitle("Volcano plot")
+```
+
+There are more upregulated genes than downregulated genes after treatment with estrogen.
+
+### 2.4. Heatmap
+
+```{r, out.height = "50%", out.width = "50%"}
+# Rlog transformation
+rld <- rlog( dds) 
+
+up_genes <- subset(res_table, res_table$diffexpressed=="UP")
+top_up <- up_genes[order(up_genes$padj, decreasing = F),][1:10,]
+down_genes <- subset(res_table, res_table$diffexpressed=="DOWN")
+top_down <- down_genes[order(down_genes$padj, decreasing = F),][1:10,]
+sigGenes <- c(rownames(top_up), rownames(top_down))
+
+# Plotting heatmap
+heatmap.2( assay(rld)[ sigGenes, ],Rowv=F, scale="row", 
+       trace="none", dendrogram="column", 
+       col = colorRampPalette( rev(brewer.pal(9, "RdBu")) )(255),
+       ColSideColors = c( "darkgreen", "orange" )[
+         colData(rld)$treatment ] )
+```
+
+We can see which genes are most up- and down-regulated depending on the treatment.
+
+### 2.5. Gene set enrichment analysis
+
+```{r}
+organism <- "org.Hs.eg.db"
+
+# Taking the stat values
+original_gene_list <- res_table$stat
+
+# Naming the vector
+names(original_gene_list) <- gsub("\\..*","",(rownames(res_table)))
+
+# Omitting any NA values 
+gene_list<-na.omit(original_gene_list)
+
+# Sorting the list in decreasing order 
+gene_list = sort(gene_list, decreasing = TRUE)
+
+#Performing GSEA
+gse <- gseGO(geneList=gene_list, 
+             ont ="BP", 
+             keyType = "ENSEMBL", 
+             nPerm = 10000, 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             OrgDb = organism, 
+             pAdjustMethod = "none")
+
+# Plotting
+dotplot(gse, showCategory=5, split=".sign", font.size = 5) + facet_grid(.~.sign)
+```
+
+
+## 3. Biological interpretation
+
+According to our analysis treatment with estrogen is mostly affecting processes related to the cell cycle in osteoblasts. As the authors of the paper mention, estrogen can act rapidly to regulate signal transduction through pathways such as ERK and PI3K, and these pathways can control the induction and activation of cell cycle events (Chambard et al., 2007; Chang et al., 2003). 
+Our results also make sense from a physiological point of view. After menopause, estrogen levels drop significantly, then osteoblasts do not proliferate as much and, as a consequence, there is increased bone loss (Ji et al., 2015).
+To check that estrogen is the main factor driving this process, I think it could be interesting to take bone samples from pre-menopause and post-menopause women, either isolate their osteoblasts or do sc-RNAseq and annotate the osteoblasts and generate a pseudo-bulk with them, and compare the transcriptional profiles of those samples to the samples we have analyzed here. My expectation would be that osteoblasts from pre-menopause women are more similar to the samples with "estrogen" treatment and osteoblasts from post-menopause women are more similar to samples with "vehicle" treatment.
+
+## 4. References
+
+- Chambard JC, Lefloch R, Pouysségur J, Lenormand P. ERK implication in cell cycle regulation. Biochim Biophys Acta. 2007 Aug;1773(8):1299-310. doi: 10.1016/j.bbamcr.2006.11.010. Epub 2006 Nov 17. PMID: 17188374.
+
+- Chang F, Lee JT, Navolanic PM, Steelman LS, Shelton JG, Blalock WL, Franklin RA, McCubrey JA. Involvement of PI3K/Akt pathway in cell cycle progression, apoptosis, and neoplastic transformation: a target for cancer chemotherapy. Leukemia. 2003 Mar;17(3):590-603. doi: 10.1038/sj.leu.2402824. PMID: 12646949.
+
+- Ji MX, Yu Q. Primary osteoporosis in postmenopausal women. Chronic Dis Transl Med. 2015 Mar 21;1(1):9-13. doi: 10.1016/j.cdtm.2015.02.006. PMID: 29062981; PMCID: PMC5643776.
+
+
