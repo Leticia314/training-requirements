@@ -1,0 +1,116 @@
+---
+title: "RNA-seq analysis"
+author: "Leticia Rodríguez Montes"
+date: "29/06/2022"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    code_folding: hide
+    toc_depth: 3
+---
+## 1. Libraries and datasets
+
+I chose 2 ChIPseq human datasets for the following transcription factors:
+
+- ESR1: a ligand-activated transcription factor that responds to estrogen (https://www.encodeproject.org/experiments/ENCSR463GOT/).
+
+- FOXA1: a member of the forkhead class of DNA-binding proteins that acts as a pioneer factor and can also bind to estrogen (https://www.encodeproject.org/experiments/ENCSR126YEB/).
+
+```{r}
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(ReactomePA)
+library(clusterProfiler)
+library(ggplot2)
+
+peaks_ESR1 <- readPeakFile("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/ESR1.bed")
+
+peaks_FOXA1 <- readPeakFile("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/FOXA1.bed")
+```
+
+## 2. ChIPseq analysis
+
+### 2.1. Overlap of binding sites for the two ChIP-Seq datasets
+
+```{r}
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+peak_list <- list(peaks_ESR1,peaks_FOXA1)
+names(peak_list) <- c("ESR1", "FOXA1")
+vennplot(peak_list)
+
+```
+
+There are 7059 overlapping peaks for these two ChIPseq datasets. To figure out whether this overlap is bigger than expected by chance, I used "enrichPeakOverlap" to calculate the significance of the overlap. 
+
+```{r}
+enrichPeakOverlap(queryPeak     = "~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/ESR1.bed",
+                  targetPeak    = "~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/FOXA1.bed",
+                  TxDb          = txdb,
+                  pAdjustMethod = "BH",
+                  nShuffle      = 1000,
+                  chainFile     = NULL,
+                  verbose       = FALSE)
+```
+
+Indeed there is a bigger overlap than expected by chance (adj. p-val << 0.05), which might suggest cooperative regulation.
+
+
+### 2.2. Metaplot of the two datasets around the TSS
+
+```{r}
+promoter <- getPromoters(TxDb=txdb, upstream=3000, downstream=3000)
+tagMatrix_ESR1 <- getTagMatrix(peaks_ESR1, windows=promoter)
+tagMatrix_FOXA1 <- getTagMatrix(peaks_FOXA1, windows=promoter)
+
+plotAvgProf(tagMatrix_ESR1, xlim=c(-3000, 3000), conf = 0.95, resample = 1000)+ggtitle("ESR1")
+plotAvgProf(tagMatrix_FOXA1, xlim=c(-3000, 3000), conf = 0.95, resample = 1000)+ggtitle("FOXA1")
+```
+
+There is an enrichment for ESR1 binding right at the TSS. FOXA1 seems to bind slightly more upstream.
+
+### 2.3. Annotation of the peaks for genomic features
+
+```{r}
+peakAnno_ESR1 <- annotatePeak("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/ESR1.bed", tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Hs.eg.db")
+
+peakAnno_FOXA1 <- annotatePeak("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/FOXA1.bed", tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Hs.eg.db")
+
+
+peak_anno_list <- list(peakAnno_ESR1, peakAnno_FOXA1)
+names(peak_anno_list) <- c("ESR1", "FOXA1")
+
+plotAnnoBar(peak_anno_list)
+plotDistToTSS(peak_anno_list)
+```
+
+Again here we can confirm that ESR1 binds typically more often close to the promoter and the TSS than FOXA1. FOXA1 binds more often to intronic regions or distal intergenic regions than ESR1.
+
+### 2.4. Pathway enrichment
+
+```{r}
+pathway_ESR1 <- enrichPathway(as.data.frame(peakAnno_ESR1)$geneId)
+dotplot(pathway_ESR1)+ ggtitle("ESR1")
+
+pathway_FOXA1 <- enrichPathway(as.data.frame(peakAnno_FOXA1)$geneId)
+dotplot(pathway_FOXA1)+ ggtitle("FOXA1")
+```
+
+Both transcription factors regulate genes involved in similar pathways, like "signaling by receptor of tyrosine kinases", "Rho GTPs cycle" or "NOTCH1 regulated transcription".
+
+## 3. Biological interpretation
+
+Both transcription factors that we are analysing here respond to estrogen although they act in a different way. Whereas FOXA1 is a "pioneer" factor that opens up the chromatin, ESR1 promotes the transcription of target genes. The significant amount of overlapping binding sites that we have identified suggests that in some cases both transcription factors act as a team, with FOXA1 binding first and loosening the chromatin and ESR1 coming second to promote gene expression, and this seems to be supported by previous studies (Theodorou et al., 2012).
+Therefore, it is not surprising that both transcription factors are involved in regulating genes linked to the same pathways, like "signaling by receptor of tyrosine kinases" or "Rho GTPs cycle" for which there is also previous evidence in the literature (Cavalcanti et al., 2015; Tolias et al., 1995).
+
+
+## 4. References
+
+- Cavalcanti FN, Lucas TF, Lazari MF, Porto CS. Estrogen receptor ESR1 mediates activation of ERK1/2, CREB, and ELK1 in the corpus of the epididymis. J Mol Endocrinol. 2015 Jun;54(3):339-49. doi: 10.1530/JME-15-0086. PMID: 26069273.
+
+- Theodorou V, Stark R, Menon S, Carroll JS. GATA3 acts upstream of FOXA1 in mediating ESR1 binding by shaping enhancer accessibility. Genome Res. 2013 Jan;23(1):12-22. doi: 10.1101/gr.139469.112. Epub 2012 Nov 21. PMID: 23172872; PMCID: PMC3530671.
+
+- Tolias KF, Cantley LC, Carpenter CL. Rho family GTPases bind to phosphoinositide kinases. J Biol Chem. 1995 Jul 28;270(30):17656-9. doi: 10.1074/jbc.270.30.17656. PMID: 7629060.
+
