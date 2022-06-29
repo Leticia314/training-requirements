@@ -9,6 +9,10 @@ output:
     code_folding: hide
     toc_depth: 3
 ---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
 ## 1. Libraries and dataset  
 
 I chose the following dataset:
@@ -126,7 +130,7 @@ There are more upregulated genes than downregulated genes after treatment with e
 
 ### 2.4. Heatmap
 
-```{r, out.height = "50%", out.width = "50%"}
+```{r}
 # Rlog transformation
 rld <- rlog( dds) 
 
@@ -141,7 +145,7 @@ heatmap.2( assay(rld)[ sigGenes, ],Rowv=F, scale="row",
        trace="none", dendrogram="column", 
        col = colorRampPalette( rev(brewer.pal(9, "RdBu")) )(255),
        ColSideColors = c( "darkgreen", "orange" )[
-         colData(rld)$treatment ] )
+         colData(rld)$treatment ] , cexRow=0.4, cexCol=0.5)
 ```
 
 We can see which genes are most up- and down-regulated depending on the treatment.
@@ -176,14 +180,15 @@ gse <- gseGO(geneList=gene_list,
              pAdjustMethod = "none")
 
 # Plotting
-dotplot(gse, showCategory=5, split=".sign", font.size = 5) + facet_grid(.~.sign)
+dotplot(gse, showCategory=10, split=".sign", font.size = 5) + facet_grid(.~.sign)
 ```
 
 
 ## 3. Biological interpretation
 
-According to our analysis treatment with estrogen is mostly affecting processes related to the cell cycle in osteoblasts. As the authors of the paper mention, estrogen can act rapidly to regulate signal transduction through pathways such as ERK and PI3K, and these pathways can control the induction and activation of cell cycle events (Chambard et al., 2007; Chang et al., 2003). 
+According to our analysis treatment with estrogen is mostly supressing processes related to cell cycle arrest and activating processes related to development in osteoblasts. As the authors of the paper mention, estrogen can act rapidly to regulate signal transduction through pathways such as ERK and PI3K, and these pathways can control the induction and activation of cell cycle events (Chambard et al., 2007; Chang et al., 2003). 
 Our results also make sense from a physiological point of view. After menopause, estrogen levels drop significantly, then osteoblasts do not proliferate as much and, as a consequence, there is increased bone loss (Ji et al., 2015).
+
 To check that estrogen is the main factor driving this process, I think it could be interesting to take bone samples from pre-menopause and post-menopause women, either isolate their osteoblasts or do sc-RNAseq and annotate the osteoblasts and generate a pseudo-bulk with them, and compare the transcriptional profiles of those samples to the samples we have analyzed here. My expectation would be that osteoblasts from pre-menopause women are more similar to the samples with "estrogen" treatment and osteoblasts from post-menopause women are more similar to samples with "vehicle" treatment.
 
 ## 4. References
