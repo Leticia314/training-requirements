@@ -9,6 +9,9 @@ output:
     code_folding: hide
     toc_depth: 3
 ---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
 ## 1. Libraries and datasets
 
 I chose 2 ChIPseq human datasets for the following transcription factors:
