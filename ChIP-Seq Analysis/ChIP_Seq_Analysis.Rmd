@@ -18,14 +18,15 @@ I chose 2 ChIPseq human datasets for the following transcription factors:
 - FOXA1: a member of the forkhead class of DNA-binding proteins that acts as a pioneer factor and can also bind to estrogen (https://www.encodeproject.org/experiments/ENCSR126YEB/).
 
 ```{r}
+# Libraries
 library(ChIPseeker)
 library(TxDb.Hsapiens.UCSC.hg38.knownGene)
 library(ReactomePA)
 library(clusterProfiler)
 library(ggplot2)
 
+#Loading data
 peaks_ESR1 <- readPeakFile("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/ESR1.bed")
-
 peaks_FOXA1 <- readPeakFile("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/FOXA1.bed")
 ```
 
@@ -34,16 +35,17 @@ peaks_FOXA1 <- readPeakFile("~/Bioinfo_Network/training-requirements/ChIP-Seq An
 ### 2.1. Overlap of binding sites for the two ChIP-Seq datasets
 
 ```{r}
+# Overlap
 txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
 peak_list <- list(peaks_ESR1,peaks_FOXA1)
 names(peak_list) <- c("ESR1", "FOXA1")
 vennplot(peak_list)
-
 ```
 
 There are 7059 overlapping peaks for these two ChIPseq datasets. To figure out whether this overlap is bigger than expected by chance, I used "enrichPeakOverlap" to calculate the significance of the overlap. 
 
 ```{r}
+# Statistical significance
 enrichPeakOverlap(queryPeak     = "~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/ESR1.bed",
                   targetPeak    = "~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/FOXA1.bed",
                   TxDb          = txdb,
@@ -59,10 +61,12 @@ Indeed there is a bigger overlap than expected by chance (adj. p-val << 0.05), w
 ### 2.2. Metaplot of the two datasets around the TSS
 
 ```{r}
+# Getting promoters and tagMatrixes
 promoter <- getPromoters(TxDb=txdb, upstream=3000, downstream=3000)
 tagMatrix_ESR1 <- getTagMatrix(peaks_ESR1, windows=promoter)
 tagMatrix_FOXA1 <- getTagMatrix(peaks_FOXA1, windows=promoter)
 
+#Plots
 plotAvgProf(tagMatrix_ESR1, xlim=c(-3000, 3000), conf = 0.95, resample = 1000)+ggtitle("ESR1")
 plotAvgProf(tagMatrix_FOXA1, xlim=c(-3000, 3000), conf = 0.95, resample = 1000)+ggtitle("FOXA1")
 ```
@@ -72,6 +76,7 @@ There is an enrichment for ESR1 binding right at the TSS. FOXA1 seems to bind sl
 ### 2.3. Annotation of the peaks for genomic features
 
 ```{r}
+# Annotation of peaks
 peakAnno_ESR1 <- annotatePeak("~/Bioinfo_Network/training-requirements/ChIP-Seq Analysis/ESR1.bed", tssRegion=c(-3000, 3000),
                          TxDb=txdb, annoDb="org.Hs.eg.db")
 
@@ -82,6 +87,7 @@ peakAnno_FOXA1 <- annotatePeak("~/Bioinfo_Network/training-requirements/ChIP-Seq
 peak_anno_list <- list(peakAnno_ESR1, peakAnno_FOXA1)
 names(peak_anno_list) <- c("ESR1", "FOXA1")
 
+# Plots
 plotAnnoBar(peak_anno_list)
 plotDistToTSS(peak_anno_list)
 ```
@@ -91,6 +97,7 @@ Again here we can confirm that ESR1 binds typically more often close to the prom
 ### 2.4. Pathway enrichment
 
 ```{r}
+# Pathway enrichment
 pathway_ESR1 <- enrichPathway(as.data.frame(peakAnno_ESR1)$geneId)
 dotplot(pathway_ESR1)+ ggtitle("ESR1")
 
