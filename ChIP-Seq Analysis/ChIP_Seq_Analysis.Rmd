@@ -111,6 +111,7 @@ Both transcription factors regulate genes involved in similar pathways, like "si
 
 Both transcription factors that we are analysing here respond to estrogen although they act in a different way. Whereas FOXA1 is a "pioneer" factor that opens up the chromatin, ESR1 promotes the transcription of target genes. The significant amount of overlapping binding sites that we have identified suggests that in some cases both transcription factors act as a team, with FOXA1 binding first and loosening the chromatin and ESR1 coming second to promote gene expression, and this seems to be supported by previous studies (Theodorou et al., 2012).
 Therefore, it is not surprising that both transcription factors are involved in regulating genes linked to the same pathways, like "signaling by receptor of tyrosine kinases" or "Rho GTPs cycle" for which there is also previous evidence in the literature (Cavalcanti et al., 2015; Tolias et al., 1995).
+To further confirm that these factors are working together, I think it could be interesting to do a co-immunoprecipitation and check whether pulling one of the factors we also get the other one.
 
 
 ## 4. References
