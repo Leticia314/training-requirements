@@ -24,13 +24,13 @@ library(rstatix)
 
 ## 2. Analysis
 
-### 2.1. Read in the gapminder_clean.csv data as a tibble using read_csv.
+**2.1. Read in the gapminder_clean.csv data as a tibble using read_csv.**
 
 ```{r}
 gapminder_clean <- read_csv("gapminder_clean.csv")
 ```
 
-### 2.2. Filter the data to include only rows where Year is 1962 and then make a scatter plot comparing 'CO2 emissions (metric tons per capita)' and gdpPercap for the filtered data.
+**2.2. Filter the data to include only rows where Year is 1962 and then make a scatter plot comparing 'CO2 emissions (metric tons per capita)' and gdpPercap for the filtered data.**
 
 ```{r}
 gapminder_1962 <- filter(gapminder_clean, Year==1962)
@@ -38,7 +38,7 @@ gapminder_1962 <- filter(gapminder_clean, Year==1962)
 ggplot(gapminder_1962, aes(x=`CO2 emissions (metric tons per capita)`, y=gdpPercap)) + geom_point() + ggtitle ("Scatter plot")
 ```
 
-### 2.3. On the filtered data, calculate the correlation of 'CO2 emissions (metric tons per capita)' and gdpPercap. What is the correlation and associated p value?
+**2.3. On the filtered data, calculate the correlation of 'CO2 emissions (metric tons per capita)' and gdpPercap. What is the correlation and associated p value?**
 
 ```{r}
 cor.test(gapminder_1962$`CO2 emissions (metric tons per capita)`, gapminder_1962$gdpPercap)
@@ -46,7 +46,7 @@ cor.test(gapminder_1962$`CO2 emissions (metric tons per capita)`, gapminder_1962
 
 There is a positive  correlation of 0.926 (p-val <2.2e-16).
 
-### 2.4. On the unfiltered data, answer "In what year is the correlation between 'CO2 emissions (metric tons per capita)' and gdpPercap the strongest?" Filter the dataset to that year for the next step...
+**2.4. On the unfiltered data, answer "In what year is the correlation between 'CO2 emissions (metric tons per capita)' and gdpPercap the strongest?" Filter the dataset to that year for the next step...**
 
 ```{r}
 max_year_cor <- gapminder_clean %>% group_by(Year)%>% 
@@ -57,7 +57,7 @@ gapminder_1967 <- filter(gapminder_clean, Year==1967)
 
 The correlation is strongest in 1967 (0.9388).
 
-### 2.5. Using plotly, create an interactive scatter plot comparing 'CO2 emissions (metric tons per capita)' and gdpPercap, where the point size is determined by pop (population) and the color is determined by the continent. You can easily convert any ggplot plot to a plotly plot using the ggplotly() command.
+**2.5. Using plotly, create an interactive scatter plot comparing 'CO2 emissions (metric tons per capita)' and gdpPercap, where the point size is determined by pop (population) and the color is determined by the continent. You can easily convert any ggplot plot to a plotly plot using the ggplotly() command.**
 
 ```{r}
 plotly_plot <- ggplot(gapminder_1967, aes(x=`CO2 emissions (metric tons per capita)`, y=gdpPercap, size=pop, color=continent)) + geom_point() + ggtitle("Plotly scatter plot")
@@ -65,7 +65,7 @@ plotly_plot <- ggplot(gapminder_1967, aes(x=`CO2 emissions (metric tons per capi
 ggplotly(plotly_plot)
 ```
 
-### 2.6. What is the relationship between continent and 'Energy use (kg of oil equivalent per capita)'? (stats test needed).
+**2.6. What is the relationship between continent and 'Energy use (kg of oil equivalent per capita)'? (stats test needed).**
 
 ```{r}
 gapminder_energy <- select(gapminder_clean, continent, `Energy use (kg of oil equivalent per capita)`) %>% filter(complete.cases(.))
@@ -80,14 +80,14 @@ ggboxplot(gapminder_energy, x = "continent", y = "Energy use (kg of oil equivale
   labs(
     subtitle = get_test_label(res.kruskal, detailed = TRUE),
     caption = get_pwc_label(pwc)
-    )
-
-# ggplot(gapminder_energy, aes(x=continent, y=`Energy use (kg of oil equivalent per capita)`)) + geom_boxplot() + stat_compare_means(method="kruskal.test")
+    )+ ggtitle ("Energy use by continent")
 ```
 
-Data is not normally distributed
+The normality test shows that the data are not normally distributed. Therefore, to compare all groups we need a non-parametric test (like Kruskal-Wallis H Test). We obtained a p-val < 0.0001, which indicates that the energy use in at least one of the continents differs from the others. 
 
-### 2.7. Is there a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990? (stats test needed)
+We then performed the correspondent pair-wise comparisons to check which continents differ from each other and we could see that all comparisons have significant p-values, indicating that the energy use in each continent differs significantly from the energy use in the other continents, with Oceania having the highest energy use and Africa the lowest.
+
+**2.7. Is there a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990? (stats test needed).**
 
 ```{r}
 gapminder_ae_1990 <- filter(gapminder_clean, Year >1990 & (continent=="Europe" | continent =="Asia"))
@@ -97,13 +97,13 @@ norm_test_1990 <- gapminder_ae_1990 %>% group_by(continent) %>% summarize(shap_t
 The normality test shows that the data are not normally distributed. Therefore, to compare both groups we need a non-parametric test (like the Mann–Whitney or Wilcoxon rank-sum test).
 
 ```{r}
-ggplot(gapminder_af_1990, aes(x=continent, y=`Imports of goods and services (% of GDP)`, fill=continent)) + geom_violin() + stat_compare_means(method = "wilcox.test", label.x = 1.4, label.y = 200)+
-  theme(legend.position="none")
+ggplot(gapminder_ae_1990, aes(x=continent, y=`Imports of goods and services (% of GDP)`, fill=continent)) + geom_violin() + stat_compare_means(method = "wilcox.test", label.x = 1.4, label.y = 200)+
+  theme(legend.position="none") + ggtitle ("Imports in Europe vs Asia")
 ```
 
 No, there is not a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990.
 
-### 2.8. What is the country (or countries) that has the highest 'Population density (people per sq. km of land area)' across all years? (i.e., which country has the highest average ranking in this category across each time point in the dataset?)
+**2.8. What is the country (or countries) that has the highest 'Population density (people per sq. km of land area)' across all years? (i.e., which country has the highest average ranking in this category across each time point in the dataset?).**
 
 ```{r}
 count_high_pop_dens <- gapminder_clean %>% group_by(`Country Name`) %>% summarize(av_pop_dens = mean(`Population density (people per sq. km of land area)`, na.rm = T)) %>% top_n(n=1, wt=av_pop_dens) %>% print()
@@ -111,7 +111,7 @@ count_high_pop_dens <- gapminder_clean %>% group_by(`Country Name`) %>% summariz
 
 The country with the highest 'Population density (people per sq. km of land area)' across all years in Macao SAR, China.
 
-### 2.9. What country (or countries) has shown the greatest increase in 'Life expectancy at birth, total (years)' since 1962?
+**2.9. What country (or countries) has shown the greatest increase in 'Life expectancy at birth, total (years)' since 1962?**
 
 ```{r}
 count_incr_life_expect <- gapminder_clean %>% select(`Country Name`, `Life expectancy at birth, total (years)`, "Year") %>% filter (Year==1962 | Year== max(Year)) %>% group_by(`Country Name`)%>% summarize(inc_life_expect = `Life expectancy at birth, total (years)`[Year==max(Year)]-`Life expectancy at birth, total (years)`[Year==min(Year)]) %>% top_n(n=1, wt=inc_life_expect) %>% print()
